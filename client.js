@@ -26,18 +26,18 @@ let connected = net.createConnection(args.values.port || 26, args.positionals[0]
     });
     connected.on("data", function(mydata) {
         pile = pile + mydata;
-        if (pile.endsWith("\0")) {
-            pile = pile.split("", pile.length - 1).join("");
+        while (pile.split("\0").length > 1 || pile.endsWith("\0")) {
+            if (pile.endsWith("\0") && pile.split("\0").length == 1) pile = pile.split("", pile.length - 1).join("");
             let myDecryption;
             try {
-                myDecryption = crypto.publicDecrypt(pub, Buffer.from(mydata.toString(), "hex"));
+                myDecryption = crypto.publicDecrypt(pub, Buffer.from(pile.split("\0")[0], "hex"));
             } catch {
                 console.error("[err] Failed data from server");
                 connected.end();
                 return connected.destroy();
             }
             process.stdout.write(myDecryption);
-            pile = "";
+            pile = pile.split("\0").slice(1).join("\0");
         }
     });
     process.stdin.resume();
