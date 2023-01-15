@@ -6,16 +6,19 @@ const args = require("util").parseArgs({
 const crypto = require("crypto");
 const fs = require("fs");
 const child_process = require("child_process");
+if (args.values.quiet) {
+    for (let thing in console) {
+        if (typeof console[thing] == "function") {
+            console[thing] = new Function();
+        }
+    }
+}
 console.log("[log] Getting RSA keys. If you receive an error, do node generate_keypairs to generate new keypairs or specify correct paths with --pubkey and --privkey.");
 let pub = fs.readFileSync(args.values.pubkey || "./storeonserver_receive.pem");
 let priv = fs.readFileSync(args.values.privkey || "./storeonserver_send.pem");
 console.log("[log] RSA keys loaded!");
 
 function myListener(socket) {
-    let spawned = child_process.spawn(args.values.shell || "bash", (args.values.args ? args.values.args.split(",") : null) || ["-i"], {
-        shell: true
-    });
-    let pile = "";
     console.log("[log] Got connection from", socket.remoteAddress);
     socket.on("error", function() {
         socket.end();
@@ -28,10 +31,39 @@ function myListener(socket) {
         console.log("[log] Connection from", socket.remoteAddress, "about to end");
     });
     socket.on("close", function() {
-        spawned.kill();
         socket.end();
         socket.destroy();
         console.log("[log] Connection from", socket.remoteAddress, "closed");
+    });
+    if (!args.values.password) {
+        do_stuff(socket);
+    } else {
+        socket.write("33574550");
+        socket.once("data", function(code) {
+            try {
+                if (crypto.publicDecrypt(pub, Buffer.from(code.toString().split("", code.length - 1).join(""), "hex")) == args.values.password) {
+                    do_stuff(socket);
+                } else {
+                    socket.write(crypto.privateEncrypt(priv, "Invalid password specified\r\n").toString("hex") + "\0");
+                    socket.end();
+                    return socket.destroy();
+                }
+            } catch (e) {
+                console.error(e)
+                console.log("[err] Failed data from", socket.remoteAddress);
+                socket.end();
+                return socket.destroy();
+            }
+        });
+    }
+}
+function do_stuff(socket) {
+    let spawned = child_process.spawn(args.values.shell || "bash", (args.values.args ? args.values.args.split(",") : null) || ["-i"], {
+        shell: true
+    });
+    let pile = "";
+    socket.on("close", function() {
+        spawned.kill();
     });
     socket.on("data", function(mydata) {
         pile = pile + mydata;

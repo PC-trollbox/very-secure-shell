@@ -5,6 +5,15 @@ const args = require("util").parseArgs({
 });
 const crypto = require("crypto");
 const fs = require("fs");
+let password_answered = false;
+let stdin_stop = false;
+if (args.values.quiet) {
+    for (let thing in console) {
+        if (typeof console[thing] == "function") {
+            console[thing] = new Function();
+        }
+    }
+}
 console.log("[log] Getting RSA keys. If you receive an error, do node generate_keypairs to generate new keypairs or specify correct paths with --pubkey and --privkey.");
 let pub = fs.readFileSync(args.values.pubkey || "./storeonclient_receive.pem");
 let priv = fs.readFileSync(args.values.privkey || "./storeonclient_send.pem");
@@ -25,6 +34,32 @@ let connected = net.createConnection(args.values.port || 26, args.positionals[0]
         process.exit(1);
     });
     connected.on("data", function(mydata) {
+        if (mydata == "33574550" && !password_answered && !args.values.automatepassword) {
+            console.log("[log] Protected by Password");
+            const readline = require('readline');
+            const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+            stdin_stop = true;
+            return rl.question("\x1b[0mEnter password: \x1b[8m", function(pass) {
+                rl.close();
+                process.stdin.resume();
+                process.stdin.setRawMode(true);
+                process.stdout.write("\x1b[0m");
+                stdin_stop = false;
+                if (pass.length >= 2048) {
+                    console.log("There's more data than allowed.");
+                    process.exit(1);
+                }
+                password_answered = true;
+                connected.write(crypto.privateEncrypt(priv, pass).toString("hex") + "\0");
+            });
+        } else if (mydata == "33574550" && !password_answered) {
+            if (args.values.automatepassword.length >= 2048) {
+                console.log("There's more data than allowed.");
+                process.exit(1);
+            }
+            password_answered = true;
+            return connected.write(crypto.privateEncrypt(priv, args.values.automatepassword).toString("hex") + "\0");
+        }
         pile = pile + mydata;
         while (pile.split("\0").length > 1 || pile.endsWith("\0")) {
             if (pile.endsWith("\0") && pile.split("\0").length == 1) pile = pile.split("", pile.length - 1).join("");
@@ -44,6 +79,6 @@ let connected = net.createConnection(args.values.port || 26, args.positionals[0]
     process.stdin.setRawMode(true);
     let stdin = process.openStdin();
     stdin.on("data", function(e) {
-        connected.write(crypto.privateEncrypt(priv, e).toString("hex") + "\0");
+        if (!stdin_stop) connected.write(crypto.privateEncrypt(priv, e).toString("hex") + "\0");
     });
 });
