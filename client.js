@@ -53,7 +53,7 @@ let connected = net.createConnection(args.values.port || 26, args.positionals[0]
                 return rl.question("\x1b[0mEnter password: \x1b[8m", function(pass) {
                     rl.close();
                     process.stdin.resume();
-                    process.stdin.setRawMode(true);
+                    if (process.stdin.setRawMode) process.stdin.setRawMode(true);
                     process.stdout.write("\x1b[0m");
                     stdin_stop = false;
                     if (pass.length >= 2048) {
@@ -78,7 +78,7 @@ let connected = net.createConnection(args.values.port || 26, args.positionals[0]
         }
     });
     process.stdin.resume();
-    process.stdin.setRawMode(true);
+    if (process.stdin.setRawMode) process.stdin.setRawMode(true);
     let stdin = process.openStdin();
     stdin.on("data", function(e) {
         if (!stdin_stop) connected.write(crypto.privateEncrypt(priv, e).toString("hex") + "\0");
