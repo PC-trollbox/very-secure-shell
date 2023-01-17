@@ -35,13 +35,30 @@ function myListener(socket) {
         socket.destroy();
         console.log("[log] Connection from", socket.remoteAddress, "closed");
     });
-    if (!args.values.password) {
+    if (args.values.motd) {
+        for (let a of args.values.motd) {
+            socket.write(crypto.privateEncrypt(priv, (a||"")).toString("hex") + "\0");
+        }
+        socket.write(crypto.privateEncrypt(priv, "\r\n").toString("hex") + "\0");
+    }
+    if (!args.values.password && !args.values.pwdgen) {
         do_stuff(socket);
     } else {
-        socket.write("33574550");
+        socket.write("33574550\0");
         socket.once("data", function(code) {
             try {
-                if (crypto.publicDecrypt(pub, Buffer.from(code.toString().split("", code.length - 1).join(""), "hex")) == args.values.password) {
+                if (args.values.pwdgen) {
+                    child_process.exec(args.values.pwdgen, function(err, stdout, stderr) {
+                        stdout = stdout.replaceAll("\r", "").replaceAll("\n", "");
+                        if (crypto.publicDecrypt(pub, Buffer.from(code.toString().split("", code.length - 1).join(""), "hex")) == stdout) {
+                            do_stuff(socket);
+                        } else {
+                            socket.write(crypto.privateEncrypt(priv, "Invalid password specified\r\n").toString("hex") + "\0");
+                            socket.end();
+                            return socket.destroy();
+                        }
+                    });
+                } else if (crypto.publicDecrypt(pub, Buffer.from(code.toString().split("", code.length - 1).join(""), "hex")) == args.values.password) {
                     do_stuff(socket);
                 } else {
                     socket.write(crypto.privateEncrypt(priv, "Invalid password specified\r\n").toString("hex") + "\0");
@@ -108,6 +125,21 @@ function do_stuff(socket) {
         }
     });
     spawned.on("error", function() {
+        socket.end();
+        socket.destroy();
+        console.error("[err] Failed data from shell, please specify your shell with --shell");
+    });
+    spawned.stdout.on("error", function() {
+        socket.end();
+        socket.destroy();
+        console.error("[err] Failed data from shell, please specify your shell with --shell");
+    });
+    spawned.stderr.on("error", function() {
+        socket.end();
+        socket.destroy();
+        console.error("[err] Failed data from shell, please specify your shell with --shell");
+    });
+    spawned.stdin.on("error", function() {
         socket.end();
         socket.destroy();
         console.error("[err] Failed data from shell, please specify your shell with --shell");

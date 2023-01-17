@@ -2,3 +2,7 @@ storeonserver_receive.pem
 storeonserver_send.pem
 storeonclient_receive.pem
 storeonclient_send.pem
+node_modules
+node_modules/**
+package.json
+package-lock.json

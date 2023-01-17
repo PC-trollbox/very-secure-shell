@@ -18,9 +18,27 @@ But if you want to you can set a program that requests a password for two-step l
   --privkey=<string-path> - Set up path to private key. Default: "./storeonserver_send.pem"
   --password=<string> - Set up a password for a second layer of authentication. The password will also be sent in encryption.
   --quiet - Remove all info messages.
+  --motd=<string> - Message of The Day when logging in.
+  --pwdgen=<string> - The full command line (both program name and arguments) that generates a password on the stdout. NO INTERACTIVE TOOLS.
 
   No positionals
 ```
+
+### totpgen.js
+This requires you to install TOTP-PC: `npm init -y`, `npm install totp-pc`.
+
+TOTPgen allows you to generate the TOTP password and passes the TOTP password and your password to stdout.
+```
+  --password=<string> - Your actual password.
+  --concatchar=<string> - A separator between your password and the TOTP generation. Default: _
+  --starttime=<number> - A start time in Unix Timestamp. Default: 0
+  --timeframe=<number> - How many time (seconds) do you have before your TOTP expires. Default: 30
+  --secret=<string> - Your TOTP-PC secret. You need to change this. Default: secret
+  --length=<number> - TOTP-PC password length. Default: 6
+```
+You'll need to enter your password as [--PASSWORD][--CONCATCHAR][TOTP]
+
+For example: `password_325775`
 
 ## Known args for client.js
 ```
